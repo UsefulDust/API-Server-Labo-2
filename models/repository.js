@@ -7,6 +7,7 @@
 // Lionel-Groulx College
 /////////////////////////////////////////////////////////////////////
 
+const e = require('express');
 const fs = require('fs');
 const { type } = require('os');
 const utilities = require('../utilities.js');
@@ -129,69 +130,15 @@ class Repository {
         }
 
         if (params) { // Labo 2 - Vincent Lepage
-            let filteredListName = [];
-            let filteredListCategory = [];
-
-            if (Array.isArray(params.sort))
-            {
-                objectsList = "Parameter 'sort' can't be an array. For example: ...?sort=Name&sort=Category";
-            }
-            else if (Array.isArray(params.Name))
-            {
-                objectsList = "Parameter 'Name' can't be an array. For example: ...?Name=*a&Name=b";
-            }
-            else if (Array.isArray(params.Category))
-            {
-                objectsList = "Parameter 'Category' can't be an array. For example: ...?Category=ea&Category=*z*";
-            }
-            if (params.sort && Array.isArray(objectsList)) {
-                if (params.sort.toLowerCase().includes(',desc'))                  
-                    objectsList = this.sortedListWithCompare(objectsList, params.sort.toLowerCase(), true); 
-                else     
-                    objectsList = this.sortedListWithCompare(objectsList, params.sort.toLowerCase());
-            }
-            if (params.Name && Array.isArray(objectsList)) {
-                let i = 0;
-                let newObjectsList = [];
-                objectsList.forEach(object => {
-                    if (this.valueMatch(object.Title, params.Name))
-                    {          
-                        filteredListName.push(object);
-                    }
-                });
-                objectsList.forEach(object => {
-                    filteredListName.forEach(filteredObject => {
-                        if (object.Id == filteredObject.Id)
-                        {
-                            newObjectsList.push(filteredObject);
-                        }
-                    })
-                });
-                objectsList = newObjectsList;
-            }
-            if (params.Category && Array.isArray(objectsList)) {
-                let i = 0;
-                let newObjectsList = [];
-                objectsList.forEach(object => {
-                    if (this.valueMatch(object.Category, params.Category))
-                    {          
-                        filteredListCategory.push(object);
-                    }
-                });
-                objectsList.forEach(object => {
-                    filteredListCategory.forEach(filteredObject => {
-                        if (object.Id == filteredObject.Id)
-                        {
-                            newObjectsList.push(filteredObject);
-                        }
-                    })
-                });
-                objectsList = newObjectsList;
-            }
-            
+            objectsList = this.paramsIsArray(objectsList, params);  
+            objectsList = this.sortVerificationBeforeCallFunction(objectsList, params);
+            objectsList = this.filteredListByNameTitle(objectsList, params);
+            objectsList = this.filteredListByCategory(objectsList, params);
         }
+
         if (objectsList.length == 0)
             objectsList = "No search results found.";
+
         return objectsList;
     }
     get(id) {
@@ -248,32 +195,122 @@ class Repository {
         else
             return this.compareNum(x, y);
     }
-    sortedListWithCompare(objectsList, sort, desc = false)
-    {
-        if (desc)
-        {
-            if (sort == "name,desc" || sort == "title,desc")
-                objectsList = [...objectsList].sort((a, b) => this.innerCompare(b.Title, a.Title));
+    sortedListWithCompare(objectsList, sort, desc = false) {
+        if (desc) {
+            if (sort == "name,desc" || sort == "title,desc") {
+                if (objectsList[0].Title) {
+                    objectsList = [...objectsList].sort((a, b) => this.innerCompare(b.Title, a.Title));
+                }
+                else if (objectsList[0].Name) {
+                    objectsList = [...objectsList].sort((a, b) => this.innerCompare(b.Name, a.Name));
+                }
+            }
             else if (sort == "category,desc")
                 objectsList = [...objectsList].sort((a, b) => this.innerCompare(b.Category, a.Category));
             else
-                objectsList = "Error: the parameter 'sort' must to include a name or category.";
+                objectsList = "Error: the parameter 'sort' must to include a name, a title or a category.";
         }
-        else
-        {
-            if (sort == "name" || sort == "title")
-                objectsList = [...objectsList].sort((a, b) => this.innerCompare(a.Title, b.Title));
+        else {
+            if (sort == "name" || sort == "title") {
+                if (objectsList[0].Title) {
+                    objectsList = [...objectsList].sort((a, b) => this.innerCompare(a.Title, b.Title));
+                }
+                else if (objectsList[0].Name) {
+                    objectsList = [...objectsList].sort((a, b) => this.innerCompare(a.Name, b.Name));
+                }
+            }
             else if (sort == "category")
                 objectsList = [...objectsList].sort((a, b) => this.innerCompare(a.Category, b.Category));
             else
-                objectsList = "Error: the parameter 'sort' must to include a name or category.";
+                objectsList = "Error: the parameter 'sort' must to include a name, a title or a category.";
         }
         return objectsList;
     }
-    /*filteredListSearch(objectsList, filter)
-    {
 
-    }*/
+    filteredListByNameTitle(objectsList, params)
+    {
+        let filteredListName = [];
+        if (params.Name && Array.isArray(objectsList)) {
+            let i = 0;
+            let newObjectsList = [];
+            if (objectsList[0].Title)
+            {
+                objectsList.forEach(object => {
+                if (this.valueMatch(object.Title, params.Name)) {
+                    filteredListName.push(object);
+                }});
+            }
+            else if (objectsList[0].Name)
+            {
+                objectsList.forEach(object => {
+                    if (this.valueMatch(object.Name, params.Name)) {
+                        filteredListName.push(object);
+                }});
+            }
+            
+            objectsList.forEach(object => {
+                filteredListName.forEach(filteredObject => {
+                    if (object.Id == filteredObject.Id) {
+                        newObjectsList.push(filteredObject);
+                    }
+                })
+            });
+            objectsList = newObjectsList;
+        }
+        return objectsList;
+    }
+
+    filteredListByCategory(objectsList, params) {
+        let filteredListCategory = [];
+        if (params.Category && Array.isArray(objectsList)) {
+            let i = 0;
+            let newObjectsList = [];
+            objectsList.forEach(object => {
+                if (this.valueMatch(object.Category, params.Category)) {
+                    filteredListCategory.push(object);
+                }
+            });
+            objectsList.forEach(object => {
+                filteredListCategory.forEach(filteredObject => {
+                    if (object.Id == filteredObject.Id) {
+                        newObjectsList.push(filteredObject);
+                    }
+                })
+            });
+            objectsList = newObjectsList; 
+        }
+        return objectsList;
+    }
+
+    paramsIsArray(objectsList, params)
+    {
+        if (Array.isArray(params.sort)) {
+            objectsList = "Parameter 'sort' can't be an array. For example: ...?sort=Name&sort=Category";
+        }
+        else if (Array.isArray(params.Name)) {
+            objectsList = "Parameter 'Name' can't be an array. For example: ...?Name=*a&Name=b";
+        }
+        else if (Array.isArray(params.Category)) {
+            objectsList = "Parameter 'Category' can't be an array. For example: ...?Category=ea&Category=*z*";
+        }
+        else if (Array.isArray(params.Title)) {
+            objectsList = "Parameter 'Title' can't be an array. For example: ...?Title=e&Title=*zqw*";
+        }
+        return objectsList;
+    }
+
+    sortVerificationBeforeCallFunction(objectsList, params)
+    {
+        if (params.sort && Array.isArray(objectsList)) {
+            if (params.sort.toLowerCase().includes(',desc'))
+                objectsList = this.sortedListWithCompare(objectsList, params.sort.toLowerCase(), true);
+            else
+                objectsList = this.sortedListWithCompare(objectsList, params.sort.toLowerCase());
+        }
+        return objectsList;
+    }
+
+    
 }
 
 module.exports = Repository;
